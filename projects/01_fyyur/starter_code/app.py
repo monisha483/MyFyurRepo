@@ -153,6 +153,13 @@ class Shows(db.Model):
         db.Integer, db.ForeignKey('Artist.id'), nullable=True)
     venue_id = db.Column(db.Integer, db.ForeignKey('Venue.id'), nullable=True)
 
+    def getShowString(self):
+        venue = Venue.query.get(self.venue_id)
+        artist = Artist.query.get(self.artist_id)
+        return {'venue_id':venue.id,'venue_name':venue.name,'artist_id':artist.id, 'artist_name': artist.name, 'artist_image_link':artist.image_link, 'start_time':(
+                self.start_time).strftime("%Y-%m-%d, %H:%M:%S")}
+
+
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
 
 # TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.
@@ -345,7 +352,6 @@ def edit_artist_submission(artist_id):
     # artist record with ID <artist_id> using the new attributes
     form = ArtistForm()
     try:
-        print('trying')
         artistObj = Artist.query.get(artist_id)
         artistObj.name = form.name.data
         artistObj.city = form.city.data
@@ -370,12 +376,9 @@ def edit_artist_submission(artist_id):
         #     seeking_venue=form.seeking_venue.data,
         #     seeking_description=form.seeking_description.data
         # )
-        print('b4 comm')
         db.session.commit()
-        print('done@@')
     except:
         db.session.rollback()
-        print('rolling')
     finally:
         db.session.close()
     return redirect(url_for('show_artist', artist_id=artist_id))
@@ -414,7 +417,6 @@ def edit_venue_submission(venue_id):
       db.session.commit()
     except:
         db.session.rollback()
-        print('rolling')
     finally:
         db.session.close()
     return redirect(url_for('show_venue', venue_id=venue_id))
@@ -471,42 +473,10 @@ def create_artist_submission():
 def shows():
     # displays list of shows at /shows
     # TODO: replace with real venues data.
-    data = [{
-        "venue_id": 1,
-        "venue_name": "The Musical Hop",
-        "artist_id": 4,
-        "artist_name": "Guns N Petals",
-        "artist_image_link": "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=80",
-        "start_time": "2019-05-21T21:30:00.000Z"
-    }, {
-        "venue_id": 3,
-        "venue_name": "Park Square Live Music & Coffee",
-        "artist_id": 5,
-        "artist_name": "Matt Quevedo",
-        "artist_image_link": "https://images.unsplash.com/photo-1495223153807-b916f75de8c5?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=334&q=80",
-        "start_time": "2019-06-15T23:00:00.000Z"
-    }, {
-        "venue_id": 3,
-        "venue_name": "Park Square Live Music & Coffee",
-        "artist_id": 6,
-        "artist_name": "The Wild Sax Band",
-        "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
-        "start_time": "2035-04-01T20:00:00.000Z"
-    }, {
-        "venue_id": 3,
-        "venue_name": "Park Square Live Music & Coffee",
-        "artist_id": 6,
-        "artist_name": "The Wild Sax Band",
-        "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
-        "start_time": "2035-04-08T20:00:00.000Z"
-    }, {
-        "venue_id": 3,
-        "venue_name": "Park Square Live Music & Coffee",
-        "artist_id": 6,
-        "artist_name": "The Wild Sax Band",
-        "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
-        "start_time": "2035-04-15T20:00:00.000Z"
-    }]
+    data = []
+    showList = Shows.query.all()
+    for s in showList:
+        data.append(s.getShowString())
     return render_template('pages/shows.html', shows=data)
 
 
@@ -521,9 +491,23 @@ def create_shows():
 def create_show_submission():
     # called to create new shows in the db, upon submitting new show listing form
     # TODO: insert form data as a new Show record in the db, instead
+    form = ShowForm()
+    try:
+        showObj = Shows(start_time = form.start_time.data,
+        artist_id = form.artist_id.data,
+        venue_id=form.venue_id.data
+        )
+        db.session.add(showObj)
+        db.session.commit()
+        flash('Show was successfully listed!')
+    except:
+        error = True
+        flash('An error occurred. Show could not be listed.')
+        db.session.rollback()
+    finally:
+        db.session.close()
 
     # on successful db insert, flash success
-    flash('Show was successfully listed!')
     # TODO: on unsuccessful db insert, flash an error instead.
     # e.g., flash('An error occurred. Show could not be listed.')
     # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
