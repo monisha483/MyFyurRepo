@@ -14,6 +14,7 @@ from flask_wtf import Form
 from forms import *
 from flask_migrate import Migrate
 import datetime
+from models import db, Venue, Artist, Shows
 #----------------------------------------------------------------------------#
 # App Config.
 #----------------------------------------------------------------------------#
@@ -21,7 +22,7 @@ import datetime
 app = Flask(__name__)
 moment = Moment(app)
 app.config.from_object('config')
-db = SQLAlchemy(app)
+db.init_app(app)
 migrate = Migrate(app, db)
 
 # TODO: connect to a local postgresql database
@@ -31,133 +32,7 @@ migrate = Migrate(app, db)
 #----------------------------------------------------------------------------#
 
 
-class Venue(db.Model):
-    __tablename__ = 'Venue'
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    genre = db.Column(db.String(120))
-    address = db.Column(db.String(120))
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    website = db.Column(db.String(120))
-    facebook_link = db.Column(db.String(120))
-    seeking_talent = db.Column(db.Boolean)
-    seeking_description = db.Column(db.String(120))
-    image_link = db.Column(db.String(500))
-    shows = db.relationship('Shows', backref='venue',
-                            lazy=True, cascade='all, delete')
-
-    def getVenueString(self):
-      return {'id': self.id, 'name': self.name, 'genres': self.genre.split(','), 'address': self.address, 'city': self.city, 'state': self.state, 'phone': self.phone, 'website_link': self.website, 'facebook_link': self.facebook_link, 'seeking_talent': self.seeking_talent, 'seeking_description': self.seeking_description, 'image_link': self.image_link}
-
-    def makeVenueStringWithShowCount(self):
-
-        return {'id': self.id, 'name': self.name, 'city': self.city, 'state': self.state, 'phone': self.phone, 'address': self.address, 'image_link': self.image_link, 'facebook_link': self.facebook_link, 'website': self.website, 'seeking_talent': self.seeking_talent, 'seeking_description': self.seeking_description, 'num_shows': self.getUpcomingShowCount()}
-
-    def makeVenueStringForSearch(self):
-        return {'id': self.id, 'name': self.name, 'num_upcoming_shows': self.getUpcomingShowCount()}
-
-    def makeVenueStringForShowVenue(self):
-
-        return {'id': self.id, 'name': self.name, 'genre': self.genre.split(','), 'address': self.address, 'city': self.city, 'state': self.state, 'phone': self.phone, 'website': self.website, 'facebook_link': self.facebook_link, 'seeking_talent': self.seeking_talent, 'seeking_description': self.seeking_description, 'image_link': self.image_link, 'past_shows': self.getPastShows(), 'upcoming_shows': self.getUpcomingShows(), 'past_shows_count': self.getPastShowCount(), 'upcoming_shows_count': self.getUpcomingShowCount()}
-
-    def getPastShows(self):
-        showList = Shows.query.filter(
-            self.id == Shows.venue_id, Shows.start_time < datetime.date.today()).all()
-        past_shows = []
-        for s in showList:
-            artistObj = Artist.query.filter(s.artist_id == Artist.id).all()
-            past_shows.append({'artist_id': artistObj[0].id, 'artist_name': artistObj[0].name, 'artist_image_link': artistObj[0].image_link, 'start_time': (
-                s.start_time).strftime("%Y-%m-%d, %H:%M:%S")})
-        return past_shows
-
-    def getPastShowCount(self):
-        return Shows.query.filter(self.id == Shows.venue_id, Shows.start_time < datetime.date.today()).count()
-
-    def getUpcomingShows(self):
-        showList = Shows.query.filter(
-            self.id == Shows.venue_id, Shows.start_time > datetime.date.today()).all()
-        up_shows = []
-        for s in showList:
-            artistObj = Artist.query.filter(s.artist_id == Artist.id).all()
-            up_shows.append({'artist_id': artistObj[0].id, 'artist_name': artistObj[0].name, 'artist_image_link': artistObj[0].image_link, 'start_time': (
-                s.start_time).strftime("%Y-%m-%d, %H:%M:%S")})
-        return up_shows
-
-    def getUpcomingShowCount(self):
-        return Shows.query.filter(self.id == Shows.venue_id, Shows.start_time > datetime.date.today()).count()
-
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
-
-
-class Artist(db.Model):
-    __tablename__ = 'Artist'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    genres = db.Column(db.String(120))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-    website = db.Column(db.String(120))
-    seeking_venue = db.Column(db.Boolean)
-    seeking_description = db.Column(db.String(120))
-    shows = db.relationship('Shows', backref='artist',
-                            lazy=True, cascade='all, delete')
-
-    def makeArtistStringForSearch(self):
-        return {'id': self.id, 'name': self.name, 'num_upcoming_shows': self.getArtistUpcomingShowCount()}
-
-    def getArtistPastShows(self):
-        showList = Shows.query.filter(
-            self.id == Shows.artist_id, Shows.start_time < datetime.date.today()).all()
-        past_shows = []
-        for s in showList:
-            venueObj = Venue.query.filter(s.venue_id == Venue.id).all()
-            past_shows.append({'venue_id': venueObj[0].id, 'venue_name': venueObj[0].name, 'venue_image_link': venueObj[0].image_link, 'start_time': (
-                s.start_time).strftime("%Y-%m-%d, %H:%M:%S")})
-        return past_shows
-
-    def getArtistUpcomingShows(self):
-        showList = Shows.query.filter(
-            self.id == Shows.artist_id, Shows.start_time < datetime.date.today()).all()
-        up_shows = []
-        for s in showList:
-            venueObj = Venue.query.filter(s.venue_id == Venue.id).all()
-            up_shows.append({'venue_id': venueObj[0].id, 'venue_name': venueObj[0].name, 'venue_image_link': venueObj[0].image_link, 'start_time': (
-                s.start_time).strftime("%Y-%m-%d, %H:%M:%S")})
-        return up_shows
-
-    def getArtistPastShowCount(self):
-        return Shows.query.filter(self.id == Shows.artist_id, Shows.start_time < datetime.date.today()).count()
-
-    def getArtistUpcomingShowCount(self):
-        return Shows.query.filter(self.id == Shows.artist_id, Shows.start_time > datetime.date.today()).count()
-
-    def makeStringForShowArtist(self):
-        return {'id': self.id, 'name': self.name, 'genres': self.genres.split(','), 'city': self.city, 'state': self.state, 'phone': self.phone, 'website': self.website, 'facebook_link': self.facebook_link, 'seeking_venue': self.seeking_venue, 'seeking_description': self.seeking_description, 'image_link': self.image_link, 'past_shows': self.getArtistPastShows(), 'upcoming_shows': self.getArtistUpcomingShows(), 'past_shows_count': self.getArtistPastShowCount(), 'upcoming_shows_count': self.getArtistUpcomingShowCount()}
-
-    def getArtistString(self):
-        return {'id': self.id, 'name': self.name, 'genres': self.genres.split(','), 'city': self.city, 'state': self.state, 'phone': self.phone, 'website_link': self.website, 'facebook_link': self.facebook_link, 'seeking_venue': self.seeking_venue, 'seeking_description': self.seeking_description, 'image_link': self.image_link}
-
-
-class Shows(db.Model):
-    __tablename__ = 'Shows'
-    id = db.Column(db.Integer, primary_key=True)
-    start_time = db.Column(db.DateTime())
-    artist_id = db.Column(
-        db.Integer, db.ForeignKey('Artist.id'), nullable=True)
-    venue_id = db.Column(db.Integer, db.ForeignKey('Venue.id'), nullable=True)
-
-    def getShowString(self):
-        venue = Venue.query.get(self.venue_id)
-        artist = Artist.query.get(self.artist_id)
-        return {'venue_id':venue.id,'venue_name':venue.name,'artist_id':artist.id, 'artist_name': artist.name, 'artist_image_link':artist.image_link, 'start_time':(
-                self.start_time).strftime("%Y-%m-%d, %H:%M:%S")}
 
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
@@ -243,6 +118,7 @@ def create_venue_form():
 def create_venue_submission():
     form = VenueForm()
     try:
+        form.validate()
         venue_item = Venue(
             name=form.name.data,
             city=form.city.data,
@@ -364,18 +240,6 @@ def edit_artist_submission(artist_id):
         artistObj.seeking_venue = form.seeking_venue.data
         artistObj.seeking_description = form.seeking_description.data
 
-        # artistObj = Artist(
-        #     name=form.name.data,
-        #     city=form.city.data,
-        #     state=form.city.data,
-        #     phone=form.phone.data,
-        #     genre=form.genres.data,
-        #     facebook_link=form.facebook_link.data,
-        #     image_link=form.image_link.data,
-        #     website=form.website_link.data,
-        #     seeking_venue=form.seeking_venue.data,
-        #     seeking_description=form.seeking_description.data
-        # )
         db.session.commit()
     except:
         db.session.rollback()

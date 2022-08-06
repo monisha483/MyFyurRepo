@@ -10,5 +10,5 @@ DEBUG = True
 
 
 # TODO IMPLEMENT DATABASE URL
-SQLALCHEMY_DATABASE_URI = 'postgresql://postgres:admin@localhost:5432/firedb'
+SQLALCHEMY_DATABASE_URI = 'postgresql://postgres:admin@localhost:5432/fyur'
 SQLALCHEMY_TRACK_MODIFICATIONS = True
