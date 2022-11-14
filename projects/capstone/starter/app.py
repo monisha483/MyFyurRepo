@@ -3,6 +3,7 @@ from flask import Flask, request, abort, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from models import setup_db, Movies, Actors
+from auth import AuthError, requires_auth
 
 DATA_PER_PAGE = 10
 
@@ -29,7 +30,8 @@ def create_app(test_config=None):
         return greeting
     
     @app.route('/actors', methods=['GET'])
-    def get_actors():
+    @requires_auth('get:actors')
+    def get_actors(self):
         selection = Actors.query.order_by(Actors.id).all()
         actors = paginate(request, selection)
         if (len(actors) == 0):
@@ -41,25 +43,34 @@ def create_app(test_config=None):
             })
     
     @app.route('/movies', methods=['GET'])
-    def get_movies():
+    @requires_auth('get:movies')
+    def get_movies(self):
         selection = Movies.query.order_by(Movies.id).all()
         movies = paginate(request, selection)
         if (len(movies) == 0):
             abort(404)
         return jsonify({
             'success': True,
-            'actors': movies,
+            'movies': movies,
             'total_movies': len(movies),
             })
     
     #endpoint to create a new actor
     @app.route('/actors', methods=['POST'])
-    def insert_Actor():
+    @requires_auth('post:actors')
+    def insert_Actor(self):
         body = request.get_json()
+        print("actor post")
+        print("body!!", body)
         new_name = body.get('name', None)
+        print("new_name", new_name)
         new_age = body.get('age', None)
         new_gender = body.get('gender', None)
+        if new_name is None:
+            print("aborting!")
+            abort(400)
         try:
+            print("try!")
             actor = Actors(
             name=new_name,
             age=new_age,
@@ -76,15 +87,18 @@ def create_app(test_config=None):
         except Exception:
             abort(422)
 
-    #endpoint to create a new actor
+    #endpoint to create a new movie
     @app.route('/movies', methods=['POST'])
-    def insert_Movie():
+    @requires_auth('post:movies')
+    def insert_Movie(self):
         body = request.get_json()
         print("hi!!")
         new_title = body.get('title', None)
         print("new_title!! ", new_title)
         new_releasedate = body.get('releasedate', None)
         print("new_releasedate!! ", new_releasedate)
+        if new_title is None or new_releasedate is None:
+            abort(500)
         try:
             movie = Movies(
             title=new_title,
@@ -104,7 +118,8 @@ def create_app(test_config=None):
 
     #DELETE endpoint to delete a movie
     @app.route("/movies/<int:movie_id>", methods=["DELETE"])
-    def delete_question(movie_id):
+    @requires_auth('delete:movies')
+    def delete_question(self, movie_id):
         try:
             movie = Movies.query.filter(Movies.id == movie_id).one_or_none()
             if movie is None:
@@ -124,7 +139,8 @@ def create_app(test_config=None):
             abort(422)
 
     @app.route("/actors/<int:actor_id>", methods=["DELETE"])
-    def delete_actor(actor_id):
+    @requires_auth('delete:actors')
+    def delete_actor(self, actor_id):
         try:
             actor = Actors.query.filter(Actors.id == actor_id).one_or_none()
             if actor is None:
@@ -145,8 +161,8 @@ def create_app(test_config=None):
             abort(422)
 
     @app.route('/actors/<int:id>', methods=['PATCH'])
-    #@requires_auth('patch:drinks')
-    def update_actor(id):
+    @requires_auth('patch:actors')
+    def update_actor(self, id):
         actor = Actors.query.get(id)
         if(actor is None):
             abort(401)
@@ -165,8 +181,8 @@ def create_app(test_config=None):
             abort(422)
 
     @app.route('/movies/<int:id>', methods=['PATCH'])
-    #@requires_auth('patch:drinks')
-    def update_movie(id):
+    @requires_auth('patch:movies')
+    def update_movie(self, id):
         print("in patch movies")
         movie = Movies.query.get(id)
         if(movie is None):
@@ -183,7 +199,57 @@ def create_app(test_config=None):
             return jsonify(movie.format())
         except Exception:
             abort(422)
+
+    @app.errorhandler(422)
+    def unprocessable(error):
+        return jsonify({
+            "success": False,
+            "error": 422,
+            "message": "unprocessable"
+            }), 422
+
+    @app.errorhandler(404)
+    def notfound(error):
+        return jsonify({
+            "success": False,
+            "error": 404,
+            "message": "notfound"
+        }), 404
+
+    @app.errorhandler(401)
+    def unauthorised(error):
+        return jsonify({
+            "success": False,
+            "error": 401,
+            "message": "unauthorised"
+        }), 401
+
+
+    @app.errorhandler(500)
+    def internalservererror(error):
+        return jsonify({
+            "success": False,
+            "error": 500,
+            "message": "internal server error"
+        }), 500
     
+    @app.errorhandler(400)
+    def badrequest(error):
+        print("error handler!")
+        return jsonify({
+            "success": False,
+            "error": 400,
+            "message": "bad request"
+        }), 400
+
+    @app.errorhandler(403)
+    def forbidden(error):
+        return jsonify({
+            "success": False,
+            "error": 403,
+            "message": "forbidden"
+        }), 403
+
     return app
 
 APP = create_app()
