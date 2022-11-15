@@ -118,7 +118,7 @@ def create_venue_form():
 def create_venue_submission():
     form = VenueForm()
     try:
-        form.validate()
+        #form.validate()
         venue_item = Venue(
             name=form.name.data,
             city=form.city.data,
